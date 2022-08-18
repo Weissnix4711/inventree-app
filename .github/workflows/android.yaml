@@ -11,7 +11,12 @@ jobs:
 
   build:
     runs-on: macos-latest
-  
+
+    env:
+      KEY_JKS: ${{ secrets.KEY_JKS }}
+      KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+      ALIAS_PASSWORD: ${{ secrets.ALIAS_PASSWORD }}
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
@@ -29,6 +34,8 @@ jobs:
       uses: gradle/gradle-build-action@v2
       with:
         gradle-version: 6.1.1
+    - name: Create key file
+      run: run: "echo $KEY_JKS | base64 -di > key.jks"
     - name: Collect Translation Files
       run: |
         cd lib/l10n
