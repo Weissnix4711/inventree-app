@@ -37,4 +37,8 @@ jobs:
       run: |
         flutter pub get
         cp lib/dummy_dsn.dart lib/dsn.dart
-        flutter build apk --debug
+        flutter build apk --target-platform android-arm,android-arm64,android-x64 --split-per-abi
+    - uses: actions/upload-artifact@v3
+      with:
+        name: apk-release
+        path: build/app/outputs/apk/release/
