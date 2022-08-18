@@ -25,12 +25,6 @@ apply plugin: 'com.android.application'
 apply plugin: 'kotlin-android'
 apply from: "$flutterRoot/packages/flutter_tools/gradle/flutter.gradle"
 
-def keystoreProperties = new Properties()
-def keystorePropertiesFile = rootProject.file('key.properties')
-if (keystorePropertiesFile.exists()) {
-    keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
-}
-
 android {
     compileSdkVersion 31
 
@@ -60,7 +54,7 @@ android {
         release {
             keyAlias "release"
             keyPassword "$System.env.ALIAS_PASSWORD"
-            storeFile file("../key.jks")
+            storeFile file("../../key.jks")
             storePassword "$System.env.KEY_PASSWORD"
         }
     }
