@@ -52,7 +52,7 @@ class _PurchaseOrderDetailState extends RefreshableState<PurchaseOrderDetailWidg
     if (InvenTreeAPI().checkPermission("purchase_order", "change")) {
       actions.add(
         IconButton(
-          icon: FaIcon(FontAwesomeIcons.edit),
+          icon: FaIcon(FontAwesomeIcons.penToSquare),
           tooltip: L10().edit,
           onPressed: () {
             editOrder(context);
@@ -159,6 +159,14 @@ class _PurchaseOrderDetailState extends RefreshableState<PurchaseOrderDetailWidg
     ));
 
     tiles.add(ListTile(
+      title: Text(L10().totalPrice),
+      leading: FaIcon(FontAwesomeIcons.dollarSign),
+      trailing: Text(
+        renderCurrency(widget.order.totalPrice, widget.order.totalPriceCurrency)
+      ),
+    ));
+
+    tiles.add(ListTile(
       title: Text(L10().received),
       leading: FaIcon(FontAwesomeIcons.clipboardCheck, color: COLOR_CLICK),
       trailing: Text("${completedLines}"),
@@ -174,7 +182,7 @@ class _PurchaseOrderDetailState extends RefreshableState<PurchaseOrderDetailWidg
       tiles.add(ListTile(
         title: Text(L10().issueDate),
         subtitle: Text(order.issueDate),
-        leading: FaIcon(FontAwesomeIcons.calendarAlt),
+        leading: FaIcon(FontAwesomeIcons.calendarDays),
       ));
     }
 
@@ -182,7 +190,7 @@ class _PurchaseOrderDetailState extends RefreshableState<PurchaseOrderDetailWidg
       tiles.add(ListTile(
         title: Text(L10().targetDate),
         subtitle: Text(order.targetDate),
-        leading: FaIcon(FontAwesomeIcons.calendarAlt),
+        leading: FaIcon(FontAwesomeIcons.calendarDays),
       ));
     }
 
@@ -190,7 +198,7 @@ class _PurchaseOrderDetailState extends RefreshableState<PurchaseOrderDetailWidg
     tiles.add(
         ListTile(
           title: Text(L10().attachments),
-          leading: FaIcon(FontAwesomeIcons.fileAlt, color: COLOR_CLICK),
+          leading: FaIcon(FontAwesomeIcons.fileLines, color: COLOR_CLICK),
           trailing: attachmentCount > 0 ? Text(attachmentCount.toString()) : null,
           onTap: () {
             Navigator.push(
@@ -250,7 +258,7 @@ class _PurchaseOrderDetailState extends RefreshableState<PurchaseOrderDetailWidg
         order.receive_url,
         fields,
         method: "POST",
-        icon: FontAwesomeIcons.signInAlt,
+        icon: FontAwesomeIcons.rightToBracket,
         onSuccess: (data) async {
           showSnackIcon(L10().receivedItem, success: true);
           refresh(context);
@@ -258,6 +266,9 @@ class _PurchaseOrderDetailState extends RefreshableState<PurchaseOrderDetailWidg
     );
   }
 
+  /*
+   * Display a context menu for a particular PurhaseOrderLineItem
+   */
   void lineItemMenu(BuildContext context, InvenTreePOLineItem lineItem) {
 
     List<Widget> children = [];
@@ -290,7 +301,7 @@ class _PurchaseOrderDetailState extends RefreshableState<PurchaseOrderDetailWidg
           },
           child: ListTile(
             title: Text(L10().receiveItem),
-            leading: FaIcon(FontAwesomeIcons.signInAlt),
+            leading: FaIcon(FontAwesomeIcons.rightToBracket),
           )
         )
       );
@@ -303,8 +314,7 @@ class _PurchaseOrderDetailState extends RefreshableState<PurchaseOrderDetailWidg
 
     children.insert(0, Divider());
 
-    showDialog(
-      context: context,
+    OneContext().showDialog(
       builder: (BuildContext context) {
         return SimpleDialog(
           title: Text(L10().lineItem),
@@ -405,15 +415,15 @@ class _PurchaseOrderDetailState extends RefreshableState<PurchaseOrderDetailWidg
       onTap: onTabSelectionChanged,
       items: [
         BottomNavigationBarItem(
-          icon: FaIcon(FontAwesomeIcons.info),
+          icon: FaIcon(FontAwesomeIcons.circleInfo),
           label: L10().details
         ),
         BottomNavigationBarItem(
-          icon: FaIcon(FontAwesomeIcons.thList),
+          icon: FaIcon(FontAwesomeIcons.tableList),
           label: L10().lineItems,
         ),
         BottomNavigationBarItem(
-          icon: FaIcon(FontAwesomeIcons.boxes),
+          icon: FaIcon(FontAwesomeIcons.boxesStacked),
           label: L10().stockItems
         )
       ],

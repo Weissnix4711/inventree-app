@@ -1,10 +1,11 @@
 import "package:flutter/material.dart";
 import "package:font_awesome_flutter/font_awesome_flutter.dart";
-import "package:inventree/helpers.dart";
 import "package:one_context/one_context.dart";
 
 import "package:inventree/api.dart";
+import "package:inventree/helpers.dart";
 import "package:inventree/l10.dart";
+
 import "package:inventree/preferences.dart";
 import "package:inventree/widget/snacks.dart";
 
@@ -12,7 +13,7 @@ import "package:inventree/widget/snacks.dart";
 /*
  * Display a "confirmation" dialog allowing the user to accept or reject an action
  */
-Future<void> confirmationDialog(String title, String text, {IconData icon = FontAwesomeIcons.questionCircle, String? acceptText, String? rejectText, Function? onAccept, Function? onReject}) async {
+Future<void> confirmationDialog(String title, String text, {IconData icon = FontAwesomeIcons.circleQuestion, String? acceptText, String? rejectText, Function? onAccept, Function? onReject}) async {
 
   String _accept = acceptText ?? L10().ok;
   String _reject = rejectText ?? L10().cancel;
@@ -62,7 +63,7 @@ Future<void> confirmationDialog(String title, String text, {IconData icon = Font
  * @description = Simple string description of error
  * @data = Error response (e.g from server)
  */
-Future<void> showErrorDialog(String title, {String description = "", APIResponse? response, IconData icon = FontAwesomeIcons.exclamationCircle, Function? onDismissed}) async {
+Future<void> showErrorDialog(String title, {String description = "", APIResponse? response, IconData icon = FontAwesomeIcons.circleExclamation, Function? onDismissed}) async {
 
   List<Widget> children = [];
 
@@ -185,10 +186,10 @@ Future<void> showServerError(String url, String title, String description) async
 /*
  * Displays an error indicating that the server returned an unexpected status code
  */
-Future<void> showStatusCodeError(String url, int status) async {
+Future<void> showStatusCodeError(String url, int status, {String details=""}) async {
 
   String msg = L10().responseInvalid;
-  String extra = "${L10().statusCode}: ${status}";
+  String extra = url + "\n" + "${L10().statusCode}: ${status}";
 
   switch (status) {
     case 400:
@@ -229,6 +230,11 @@ Future<void> showStatusCodeError(String url, int status) async {
       break;
     default:
       break;
+  }
+
+  if (details.isNotEmpty) {
+    extra += "\n";
+    extra += details;
   }
 
   showServerError(

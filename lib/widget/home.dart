@@ -24,6 +24,7 @@ import "package:inventree/widget/purchase_order_list.dart";
 import "package:inventree/widget/search.dart";
 import "package:inventree/widget/snacks.dart";
 import "package:inventree/widget/spinner.dart";
+import "package:inventree/widget/company_list.dart";
 
 
 class InvenTreeHomePage extends StatefulWidget {
@@ -126,13 +127,13 @@ class _InvenTreeHomePageState extends State<InvenTreeHomePage> {
     );
   }
 
-  /*
   void _showSuppliers(BuildContext context) {
     if (!InvenTreeAPI().checkConnection()) return;
 
     Navigator.push(context, MaterialPageRoute(builder: (context) => CompanyListWidget(L10().suppliers, {"is_supplier": "true"})));
   }
 
+  /*
   void _showManufacturers(BuildContext context) {
     if (!InvenTreeAPI().checkConnection()) return;
 
@@ -236,7 +237,7 @@ class _InvenTreeHomePageState extends State<InvenTreeHomePage> {
         if (!allowed) {
           showSnackIcon(
             L10().permissionRequired,
-            icon: FontAwesomeIcons.exclamationCircle,
+            icon: FontAwesomeIcons.circleExclamation,
             success: false,
           );
 
@@ -294,26 +295,24 @@ class _InvenTreeHomePageState extends State<InvenTreeHomePage> {
     tiles.add(_listTile(
         context,
         L10().stock,
-        FontAwesomeIcons.boxes,
+        FontAwesomeIcons.boxesStacked,
         callback: () {
           _showStock(context);
         }
     ));
 
-    // Purchase orderes
+    // Purchase orders
     if (homeShowPo) {
       tiles.add(_listTile(
           context,
           L10().purchaseOrders,
-          FontAwesomeIcons.shoppingCart,
+          FontAwesomeIcons.cartShopping,
           callback: () {
             _showPurchaseOrders(context);
           }
       ));
     }
 
-    // TODO: Add these tiles back in once the features are fleshed out
-    /*
     // Suppliers
     if (homeShowSuppliers) {
       tiles.add(_listTile(
@@ -325,6 +324,10 @@ class _InvenTreeHomePageState extends State<InvenTreeHomePage> {
           }
       ));
     }
+
+    // TODO: Add these tiles back in once the features are fleshed out
+    /*
+
 
     // Manufacturers
     if (homeShowManufacturers) {
@@ -355,7 +358,7 @@ class _InvenTreeHomePageState extends State<InvenTreeHomePage> {
     tiles.add(_listTile(
         context,
         L10().settings,
-        FontAwesomeIcons.cogs,
+        FontAwesomeIcons.gears,
         callback: () {
           _showSettings(context);
         }
@@ -374,7 +377,7 @@ class _InvenTreeHomePageState extends State<InvenTreeHomePage> {
     bool validAddress = serverAddress != null;
     bool connecting = !InvenTreeAPI().isConnected() && InvenTreeAPI().isConnecting();
 
-    Widget leading = FaIcon(FontAwesomeIcons.exclamationCircle, color: COLOR_DANGER);
+    Widget leading = FaIcon(FontAwesomeIcons.circleExclamation, color: COLOR_DANGER);
     Widget trailing = FaIcon(FontAwesomeIcons.server, color: COLOR_CLICK);
     String title = L10().serverNotConnected;
     String subtitle = L10().profileSelectOrCreate;
@@ -440,11 +443,11 @@ class _InvenTreeHomePageState extends State<InvenTreeHomePage> {
 
     List<BottomNavigationBarItem> items = <BottomNavigationBarItem>[
       BottomNavigationBarItem(
-        icon: FaIcon(FontAwesomeIcons.home),
+        icon: FaIcon(FontAwesomeIcons.house),
         label: L10().home,
       ),
       BottomNavigationBarItem(
-        icon: FaIcon(FontAwesomeIcons.search),
+        icon: FaIcon(FontAwesomeIcons.magnifyingGlass),
         label: L10().search,
       ),
     ];

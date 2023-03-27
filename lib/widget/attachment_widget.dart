@@ -3,14 +3,19 @@ import "dart:io";
 
 import "package:flutter/material.dart";
 import "package:font_awesome_flutter/font_awesome_flutter.dart";
+import "package:one_context/one_context.dart";
+import "package:url_launcher/url_launcher.dart";
+
+import "package:inventree/l10.dart";
 import "package:inventree/app_colors.dart";
+
 import "package:inventree/inventree/model.dart";
+
 import "package:inventree/widget/fields.dart";
 import "package:inventree/widget/progress.dart";
 import "package:inventree/widget/snacks.dart";
 import "package:inventree/widget/refreshable_state.dart";
-import "package:inventree/l10.dart";
-import "package:url_launcher/url_launcher.dart";
+
 
 /*
  * A generic widget for displaying a list of attachments.
@@ -49,7 +54,7 @@ class _AttachmentWidgetState extends RefreshableState<AttachmentWidget> {
       // File upload
       actions.add(
           IconButton(
-            icon: FaIcon(FontAwesomeIcons.plusCircle),
+            icon: FaIcon(FontAwesomeIcons.circlePlus),
             onPressed: () async {
               FilePickerDialog.pickFile(
                   onPicked: (File file) async {
@@ -79,6 +84,48 @@ class _AttachmentWidgetState extends RefreshableState<AttachmentWidget> {
     refresh(context);
   }
 
+  /*
+   * Delete the specified attachment
+   */
+  Future<void> deleteAttachment(BuildContext context, InvenTreeAttachment attachment) async {
+
+    final bool result = await attachment.delete();
+
+    showSnackIcon(
+      result ? L10().deleteSuccess : L10().deleteFailed,
+      success: result
+    );
+
+    refresh(context);
+
+  }
+
+  /*
+   * Display an option context menu for the selected attachment
+   */
+  Future<void> showOptionsMenu(BuildContext context, InvenTreeAttachment attachment) async {
+    OneContext().showDialog(
+      builder: (BuildContext ctx) {
+        return SimpleDialog(
+          title: Text(L10().attachments),
+          children: [
+            Divider(),
+            SimpleDialogOption(
+              onPressed: () async {
+                Navigator.of(ctx).pop();
+                deleteAttachment(context, attachment);
+              },
+              child: ListTile(
+                title: Text(L10().delete),
+                leading: FaIcon(FontAwesomeIcons.trashCan),
+              )
+            )
+          ]
+        );
+      }
+    );
+  }
+
   @override
   Future<void> request(BuildContext context) async {
 
@@ -87,7 +134,6 @@ class _AttachmentWidgetState extends RefreshableState<AttachmentWidget> {
         widget.attachment.REFERENCE_FIELD: widget.referenceId.toString()
       }
     ).then((var results) {
-
       attachments.clear();
 
       for (var result in results) {
@@ -128,6 +174,9 @@ class _AttachmentWidgetState extends RefreshableState<AttachmentWidget> {
             await attachment.downloadAttachment();
             hideLoadingOverlay();
           },
+          onLongPress: ()  {
+            showOptionsMenu(context, attachment);
+          },
         ));
       }
 
@@ -137,10 +186,14 @@ class _AttachmentWidgetState extends RefreshableState<AttachmentWidget> {
           subtitle: Text(attachment.comment),
           leading: FaIcon(FontAwesomeIcons.link, color: COLOR_CLICK),
           onTap: () async {
-            if (await canLaunch(attachment.link)) {
-              await launch(attachment.link);
+            var uri = Uri.tryParse(attachment.link.trimLeft());
+            if (uri != null && await canLaunchUrl(uri)) {
+              await launchUrl(uri);
             }
-          }
+          },
+          onLongPress: ()  {
+            showOptionsMenu(context, attachment);
+          },
         ));
       }
     }

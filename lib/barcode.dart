@@ -1,21 +1,24 @@
 import "dart:io";
-
-import "package:inventree/inventree/sentry.dart";
-import "package:inventree/widget/dialogs.dart";
-import "package:inventree/widget/snacks.dart";
 import "package:flutter/material.dart";
 import "package:font_awesome_flutter/font_awesome_flutter.dart";
 import "package:one_context/one_context.dart";
-
 import "package:qr_code_scanner/qr_code_scanner.dart";
 
-import "package:inventree/inventree/stock.dart";
-import "package:inventree/inventree/part.dart";
+import "package:inventree/app_colors.dart";
 import "package:inventree/api.dart";
 import "package:inventree/helpers.dart";
 import "package:inventree/l10.dart";
 import "package:inventree/preferences.dart";
 
+import "package:inventree/inventree/company.dart";
+import "package:inventree/inventree/part.dart";
+import "package:inventree/inventree/sentry.dart";
+import "package:inventree/inventree/stock.dart";
+
+import "package:inventree/widget/refreshable_state.dart";
+import "package:inventree/widget/supplier_part_detail.dart";
+import "package:inventree/widget/dialogs.dart";
+import "package:inventree/widget/snacks.dart";
 import "package:inventree/widget/location_display.dart";
 import "package:inventree/widget/part_detail.dart";
 import "package:inventree/widget/stock_detail.dart";
@@ -55,8 +58,6 @@ class BarcodeHandler {
 
   String getOverlayText(BuildContext context) => "Barcode Overlay";
 
-  QRViewController? _controller;
-
     Future<void> onBarcodeMatched(Map<String, dynamic> data) async {
       // Called when the server "matches" a barcode
       // Override this function
@@ -75,21 +76,18 @@ class BarcodeHandler {
       );
     }
 
-    Future<void> onBarcodeUnhandled(Map<String, dynamic> data) async {
-
+  // Called when the server returns an unhandled response
+  Future<void> onBarcodeUnhandled(Map<String, dynamic> data) async {
       barcodeFailureTone();
-
-      // Called when the server returns an unhandled response
       showServerError("barcode/", L10().responseUnknown, data.toString());
-
-      _controller?.resumeCamera();
     }
 
     /*
      * Base function to capture and process barcode data.
+     *
+     * Returns true only if the barcode scanner should remain open
      */
     Future<void> processBarcode(QRViewController? _controller, String barcode, {String url = "barcode/"}) async {
-      this._controller = _controller;
 
       debug("Scanned barcode data: '${barcode}'");
 
@@ -102,7 +100,7 @@ class BarcodeHandler {
 
         showSnackIcon(
           L10().barcodeError,
-          icon: FontAwesomeIcons.exclamationCircle,
+          icon: FontAwesomeIcons.circleExclamation,
           success: false
         );
 
@@ -117,7 +115,7 @@ class BarcodeHandler {
           expectedStatusCode: null,  // Do not show an error on "unexpected code"
       );
 
-      _controller?.resumeCamera();
+      debug("Barcode scan response" + response.data.toString());
 
       Map<String, dynamic> data = response.asMap();
 
@@ -160,6 +158,7 @@ class BarcodeHandler {
  * - StockLocation
  * - StockItem
  * - Part
+ * - SupplierPart
  */
 class BarcodeScanHandler extends BarcodeHandler {
 
@@ -173,109 +172,120 @@ class BarcodeScanHandler extends BarcodeHandler {
 
     showSnackIcon(
         L10().barcodeNoMatch,
-        icon: FontAwesomeIcons.exclamationCircle,
+        icon: FontAwesomeIcons.circleExclamation,
         success: false,
     );
   }
 
+  /*
+   * Response when a "Part" instance is scanned
+   */
+  Future<void> handlePart(int pk) async {
+
+    var part = await InvenTreePart().get(pk);
+
+    if (part is InvenTreePart) {
+      OneContext().pop();
+      OneContext().push(MaterialPageRoute(builder: (context) => PartDetailWidget(part)));
+    }
+  }
+
+  /*
+   * Response when a "StockItem" instance is scanned
+   */
+  Future<void> handleStockItem(int pk) async {
+
+    var item = await InvenTreeStockItem().get(pk);
+
+    if (item is InvenTreeStockItem) {
+      OneContext().pop();
+      OneContext().push(MaterialPageRoute(
+            builder: (context) => StockDetailWidget(item)));
+    }
+  }
+
+  /*
+   * Response when a "StockLocation" instance is scanned
+   */
+  Future<void> handleStockLocation(int pk) async {
+
+    var loc = await InvenTreeStockLocation().get(pk);
+
+    if (loc is InvenTreeStockLocation) {
+      OneContext().pop();
+      OneContext().navigator.push(MaterialPageRoute(
+          builder: (context) => LocationDisplayWidget(loc)));
+    }
+  }
+
+  /*
+   * Response when a "SupplierPart" instance is scanned
+   */
+  Future<void> handleSupplierPart(int pk) async {
+
+    var supplierpart = await InvenTreeSupplierPart().get(pk);
+
+    if (supplierpart is InvenTreeSupplierPart) {
+      OneContext().pop();
+      OneContext().push(MaterialPageRoute(
+          builder: (context) => SupplierPartDetailWidget(supplierpart)));
+    }
+  }
+
   @override
   Future<void> onBarcodeMatched(Map<String, dynamic> data) async {
-
     int pk = -1;
 
-    // A stocklocation has been passed?
-    if (data.containsKey("stocklocation")) {
+    String model = "";
 
-      pk = (data["stocklocation"]?["pk"] ?? -1) as int;
+    // The following model types can be matched with barcodes
+    final List<String> validModels = [
+      "part",
+      "stockitem",
+      "stocklocation",
+      "supplierpart"
+    ];
 
-      if (pk > 0) {
+    for (var key in validModels) {
+      if (data.containsKey(key)) {
+        pk = (data[key]?["pk"] ?? -1) as int;
 
-        barcodeSuccessTone();
-
-        InvenTreeStockLocation().get(pk).then((var loc) {
-          if (loc is InvenTreeStockLocation) {
-            showSnackIcon(
-              L10().stockLocation,
-              success: true,
-              icon: Icons.qr_code,
-            );
-            OneContext().pop();
-            OneContext().navigator.push(MaterialPageRoute(builder: (context) => LocationDisplayWidget(loc)));
-          }
-        });
-      } else {
-
-        barcodeFailureTone();
-
-        showSnackIcon(
-          L10().invalidStockLocation,
-          success: false
-        );
+        // Break on the first valid match found
+        if (pk > 0) {
+          model = key;
+          break;
+        }
       }
+    }
 
-    } else if (data.containsKey("stockitem")) {
+    // A valid result has been found
+    if (pk > 0 && model.isNotEmpty) {
 
-      pk = (data["stockitem"]?["pk"] ?? -1) as int;
+      barcodeSuccessTone();
 
-      if (pk > 0) {
-
-        barcodeSuccessTone();
-
-        InvenTreeStockItem().get(pk).then((var item) {
-          showSnackIcon(
-            L10().stockItem,
-            success: true,
-            icon: Icons.qr_code,
-          );
-          OneContext().pop();
-          if (item is InvenTreeStockItem) {
-            OneContext().push(MaterialPageRoute(builder: (context) => StockDetailWidget(item)));
-          }
-        });
-      } else {
-
-        barcodeFailureTone();
-
-        showSnackIcon(
-            L10().invalidStockItem,
-            success: false
-        );
+      switch (model) {
+        case "part":
+          await handlePart(pk);
+          return;
+        case "stockitem":
+          await handleStockItem(pk);
+          return;
+        case "stocklocation":
+          await handleStockLocation(pk);
+          return;
+        case "supplierpart":
+          await handleSupplierPart(pk);
+          return;
+        default:
+          // Fall through to failure state
+          break;
       }
-    } else if (data.containsKey("part")) {
+    }
 
-      pk = (data["part"]?["pk"] ?? -1) as int;
+    // If we get here, we have not found a valid barcode result!
+    barcodeFailureTone();
 
-      if (pk > 0) {
-
-        barcodeSuccessTone();
-
-        InvenTreePart().get(pk).then((var part) {
-          showSnackIcon(
-            L10().part,
-            success: true,
-            icon: Icons.qr_code,
-          );
-          // Dismiss the barcode scanner
-          OneContext().pop();
-
-          if (part is InvenTreePart) {
-            OneContext().push(MaterialPageRoute(builder: (context) => PartDetailWidget(part)));
-          }
-        });
-      } else {
-
-        barcodeFailureTone();
-
-        showSnackIcon(
-            L10().invalidPart,
-            success: false
-        );
-      }
-    } else {
-
-      barcodeFailureTone();
-
-      showSnackIcon(
+    showSnackIcon(
         L10().barcodeUnknown,
         success: false,
         onAction: () {
@@ -292,8 +302,7 @@ class BarcodeScanHandler extends BarcodeHandler {
               )
           );
         }
-      );
-    }
+    );
   }
 }
 
@@ -325,9 +334,8 @@ class BarcodeScanStockLocationHandler extends BarcodeHandler {
 
         if (result && OneContext.hasContext) {
           OneContext().pop();
+          return;
         }
-
-        return;
       }
     }
 
@@ -372,13 +380,12 @@ class BarcodeScanStockItemHandler extends BarcodeHandler {
 
         barcodeSuccessTone();
 
-        final bool result = await onItemScanned(_item);
+        bool result = await onItemScanned(_item);
 
         if (result && OneContext.hasContext) {
           OneContext().pop();
+          return;
         }
-
-        return;
       }
     }
 
@@ -396,7 +403,6 @@ class BarcodeScanStockItemHandler extends BarcodeHandler {
     // Re-implement this for particular subclass
     return false;
   }
-
 }
 
 
@@ -466,10 +472,10 @@ class StockLocationScanInItemsHandler extends BarcodeScanStockItemHandler {
       }
     }
 
-    showSnackIcon(
-      result ? L10().barcodeScanIntoLocationSuccess : L10().barcodeScanIntoLocationFailure,
-      success: result
-    );
+        showSnackIcon(
+            result ? L10().barcodeScanIntoLocationSuccess : L10().barcodeScanIntoLocationFailure,
+            success: result
+        );
 
     // We always return false here, to ensure the barcode scan dialog remains open
     return false;
@@ -567,16 +573,23 @@ class UniqueBarcodeHandler extends BarcodeHandler {
   Future<void> onBarcodeUnknown(Map<String, dynamic> data) async {
     // If the barcode is unknown, we *can* assign it to the stock item!
 
-    if (!data.containsKey("hash")) {
+    if (!data.containsKey("hash") && !data.containsKey("barcode_hash")) {
       showServerError(
         "barcode/",
         L10().missingData,
         L10().barcodeMissingHash,
       );
     } else {
-      String hash = (data["hash"] ?? "") as String;
+      String barcode;
 
-      if (hash.isEmpty) {
+      if (InvenTreeAPI().supportModernBarcodes) {
+        barcode = (data["barcode_data"] ?? "") as String;
+      } else {
+        // Legacy barcode API
+        barcode = (data["hash"] ?? data["barcode_hash"] ?? "") as String;
+      }
+
+      if (barcode.isEmpty) {
         barcodeFailureTone();
 
         showSnackIcon(
@@ -592,7 +605,7 @@ class UniqueBarcodeHandler extends BarcodeHandler {
           OneContext().pop();
         }
 
-        callback(hash);
+        callback(barcode);
       }
     }
   }
@@ -620,6 +633,8 @@ class _QRViewState extends State<InvenTreeQRView> {
 
   bool flash_status = false;
 
+  bool currently_processing = false;
+
   Future<void> updateFlashStatus() async {
     final bool? status = await _controller?.getFlashStatus();
 
@@ -637,21 +652,53 @@ class _QRViewState extends State<InvenTreeQRView> {
   void reassemble() {
     super.reassemble();
 
-    if (Platform.isAndroid) {
-      _controller!.pauseCamera();
-    }
+    if (mounted) {
+      if (Platform.isAndroid) {
+        _controller!.pauseCamera();
+      }
 
-    _controller!.resumeCamera();
+      _controller!.resumeCamera();
+    }
   }
 
+  /* Callback function when the Barcode scanner view is initially created */
   void _onViewCreated(BuildContext context, QRViewController controller) {
     _controller = controller;
-    controller.scannedDataStream.listen((barcode) {
-      _controller?.pauseCamera();
 
-      if (barcode.code != null) {
-        widget._handler.processBarcode(_controller, barcode.code ?? "");
-      }
+    controller.scannedDataStream.listen((barcode) {
+      handleBarcode(barcode.code);
+    });
+  }
+
+  /* Handle scanned data */
+  Future<void> handleBarcode(String? data) async {
+
+    // Empty or missing data, or we have navigated away
+    if (!mounted || data == null || data.isEmpty) {
+      return;
+    }
+
+    // Currently processing a barcode - return!
+    if (currently_processing) {
+      return;
+    }
+
+    setState(() {
+      currently_processing = true;
+    });
+
+    // Pause camera functionality until we are done processing
+    _controller?.pauseCamera();
+
+    // processBarcode returns true if the scanner window is to remain open
+    widget._handler.processBarcode(_controller, data).then((value) {
+      // Re-start the process after some delay
+      Future.delayed(Duration(milliseconds: 500)).then((value) {
+        if (mounted) {
+          _controller?.resumeCamera();
+          currently_processing = false;
+        }
+      });
     });
   }
 
@@ -726,8 +773,62 @@ class _QRViewState extends State<InvenTreeQRView> {
 }
 
 Future<void> scanQrCode(BuildContext context) async {
-
   Navigator.push(context, MaterialPageRoute(builder: (context) => InvenTreeQRView(BarcodeScanHandler())));
 
   return;
+}
+
+
+/*
+ * Construct a generic ListTile widget to link or un-link a custom barcode from a model.
+ */
+Widget customBarcodeActionTile(BuildContext context, RefreshableState state, String barcode, String model, int pk) {
+
+  if (barcode.isEmpty) {
+    return ListTile(
+      title: Text(L10().barcodeAssign),
+      subtitle: Text(L10().barcodeAssignDetail),
+      leading: Icon(Icons.qr_code, color: COLOR_CLICK),
+      trailing: Icon(Icons.qr_code_scanner),
+      onTap: () {
+        var handler = UniqueBarcodeHandler((String barcode) {
+          InvenTreeAPI().linkBarcode({
+            model: pk.toString(),
+            "barcode": barcode,
+          }).then((bool result) {
+            showSnackIcon(
+              result ? L10().barcodeAssigned : L10().barcodeNotAssigned,
+              success: result
+            );
+
+            state.refresh(context);
+          });
+        });
+
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => InvenTreeQRView(handler)
+          )
+        );
+      }
+    );
+  } else {
+    return ListTile(
+      title: Text(L10().barcodeUnassign),
+      leading: Icon(Icons.qr_code, color: COLOR_CLICK),
+      onTap: () async {
+        InvenTreeAPI().unlinkBarcode({
+          model: pk.toString()
+        }).then((bool result) {
+          showSnackIcon(
+            result ? L10().requestSuccessful : L10().requestFailed,
+            success: result,
+          );
+
+          state.refresh(context);
+        });
+      },
+    );
+  }
 }

@@ -2,7 +2,6 @@ import "package:flutter/material.dart";
 
 import "package:font_awesome_flutter/font_awesome_flutter.dart";
 
-import "package:inventree/api.dart";
 import "package:inventree/app_colors.dart";
 import "package:inventree/barcode.dart";
 import "package:inventree/l10.dart";
@@ -51,10 +50,10 @@ class _LocationDisplayState extends RefreshableState<LocationDisplayWidget> {
     if (location != null) {
 
       // Add "locate" button
-      if (InvenTreeAPI().supportsMixin("locate")) {
+      if (api.supportsMixin("locate")) {
         actions.add(
           IconButton(
-            icon: FaIcon(FontAwesomeIcons.searchLocation),
+            icon: FaIcon(FontAwesomeIcons.magnifyingGlassLocation),
             tooltip: L10().locateLocation,
             onPressed: () async {
               _locateStockLocation(context);
@@ -64,10 +63,10 @@ class _LocationDisplayState extends RefreshableState<LocationDisplayWidget> {
       }
 
       // Add "edit" button
-      if (InvenTreeAPI().checkPermission("stock_location", "change")) {
+      if (api.checkPermission("stock_location", "change")) {
         actions.add(
             IconButton(
-              icon: FaIcon(FontAwesomeIcons.edit),
+              icon: FaIcon(FontAwesomeIcons.penToSquare),
               tooltip: L10().edit,
               onPressed: () { _editLocationDialog(context); },
             )
@@ -86,7 +85,7 @@ class _LocationDisplayState extends RefreshableState<LocationDisplayWidget> {
     final _loc = location;
 
     if (_loc != null) {
-      InvenTreeAPI().locateItemOrLocation(context, location: _loc.pk);
+      api.locateItemOrLocation(context, location: _loc.pk);
     }
   }
 
@@ -202,7 +201,7 @@ class _LocationDisplayState extends RefreshableState<LocationDisplayWidget> {
             L10().stockTopLevel,
             style: TextStyle(fontStyle: FontStyle.italic)
           ),
-          leading: FaIcon(FontAwesomeIcons.boxes),
+          leading: FaIcon(FontAwesomeIcons.boxesStacked),
         )
       );
     } else {
@@ -211,7 +210,7 @@ class _LocationDisplayState extends RefreshableState<LocationDisplayWidget> {
         ListTile(
           title: Text("${location!.name}"),
           subtitle: Text("${location!.description}"),
-          leading: FaIcon(FontAwesomeIcons.boxes),
+          leading: location!.customIcon ?? FaIcon(FontAwesomeIcons.boxesStacked),
         ),
       ];
 
@@ -220,7 +219,7 @@ class _LocationDisplayState extends RefreshableState<LocationDisplayWidget> {
             ListTile(
               title: Text(L10().parentLocation),
               subtitle: Text("${location!.parentPathString}"),
-              leading: FaIcon(FontAwesomeIcons.levelUpAlt, color: COLOR_CLICK),
+              leading: FaIcon(FontAwesomeIcons.turnUp, color: COLOR_CLICK),
               onTap: () async {
 
                 int parentId = location?.parentId ?? -1;
@@ -261,7 +260,7 @@ class _LocationDisplayState extends RefreshableState<LocationDisplayWidget> {
             label: L10().details,
           ),
           BottomNavigationBarItem(
-            icon: FaIcon(FontAwesomeIcons.boxes),
+            icon: FaIcon(FontAwesomeIcons.boxesStacked),
             label: L10().stock,
           ),
           BottomNavigationBarItem(
@@ -372,14 +371,14 @@ class _LocationDisplayState extends RefreshableState<LocationDisplayWidget> {
 
     tiles.add(locationDescriptionCard(includeActions: false));
 
-    if (InvenTreeAPI().checkPermission("stock", "add")) {
+    if (api.checkPermission("stock", "add")) {
 
       tiles.add(
         ListTile(
           title: Text(L10().locationCreate),
           subtitle: Text(L10().locationCreateDetail),
           leading: FaIcon(FontAwesomeIcons.sitemap, color: COLOR_CLICK),
-          trailing: FaIcon(FontAwesomeIcons.plusCircle, color: COLOR_CLICK),
+          trailing: FaIcon(FontAwesomeIcons.circlePlus, color: COLOR_CLICK),
           onTap: () async {
             _newLocation(context);
           },
@@ -390,8 +389,8 @@ class _LocationDisplayState extends RefreshableState<LocationDisplayWidget> {
         ListTile(
           title: Text(L10().stockItemCreate),
           subtitle: Text(L10().stockItemCreateDetail),
-          leading: FaIcon(FontAwesomeIcons.boxes, color: COLOR_CLICK),
-          trailing: FaIcon(FontAwesomeIcons.plusCircle, color: COLOR_CLICK),
+          leading: FaIcon(FontAwesomeIcons.boxesStacked, color: COLOR_CLICK),
+          trailing: FaIcon(FontAwesomeIcons.circlePlus, color: COLOR_CLICK),
           onTap: () async {
             _newStockItem(context);
           },
@@ -403,12 +402,12 @@ class _LocationDisplayState extends RefreshableState<LocationDisplayWidget> {
     if (location != null) {
 
       // Scan stock item into location
-      if (InvenTreeAPI().checkPermission("stock", "change")) {
+      if (api.checkPermission("stock", "change")) {
         tiles.add(
             ListTile(
               title: Text(L10().barcodeScanItem),
               subtitle: Text(L10().barcodeScanInItems),
-              leading: FaIcon(FontAwesomeIcons.exchangeAlt, color: COLOR_CLICK),
+              leading: FaIcon(FontAwesomeIcons.rightLeft, color: COLOR_CLICK),
               trailing: Icon(Icons.qr_code, color: COLOR_CLICK),
               onTap: () {
 
@@ -429,12 +428,12 @@ class _LocationDisplayState extends RefreshableState<LocationDisplayWidget> {
         );
 
         // Scan this location into another one
-        if (InvenTreeAPI().checkPermission("stock_location", "change")) {
+        if (api.checkPermission("stock_location", "change")) {
           tiles.add(
             ListTile(
               title: Text(L10().transferStockLocation),
               subtitle: Text(L10().transferStockLocationDetail),
-              leading: FaIcon(FontAwesomeIcons.signInAlt, color: COLOR_CLICK),
+              leading: FaIcon(FontAwesomeIcons.rightToBracket, color: COLOR_CLICK),
               trailing: Icon(Icons.qr_code, color: COLOR_CLICK),
               onTap: () {
                 var _loc = location;
@@ -451,6 +450,12 @@ class _LocationDisplayState extends RefreshableState<LocationDisplayWidget> {
                 }
               }
             )
+          );
+        }
+
+        if (api.supportModernBarcodes) {
+          tiles.add(
+            customBarcodeActionTile(context, this, location!.customBarcode, "stocklocation", location!.pk)
           );
         }
       }

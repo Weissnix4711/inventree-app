@@ -8,6 +8,7 @@
  */
 
 import "dart:io";
+import "package:currency_formatter/currency_formatter.dart";
 
 import "package:audioplayers/audioplayers.dart";
 import "package:one_context/one_context.dart";
@@ -17,7 +18,10 @@ List<String> debug_messages = [];
 
 void clearDebugMessage() => debug_messages.clear();
 
-int debugMessageCount() => debug_messages.length;
+int debugMessageCount() {
+  print("Debug Messages: ${debug_messages.length}");
+  return debug_messages.length;
+}
 
 // Check if the debug log contains a given message
 bool debugContains(String msg, {bool raiseAssert = true}) {
@@ -71,6 +75,37 @@ Future<void> playAudioFile(String path) async {
     return;
   }
 
-  final player = AudioCache();
-  player.play(path);
+  final player = AudioPlayer();
+  player.play(AssetSource(path));
+}
+
+
+/*
+ * Helper function for rendering a money / currency object as a String
+ */
+String renderCurrency(double? amount, String currency, {int decimals = 2}) {
+
+  if (amount == null) return "-";
+  if (amount.isInfinite || amount.isNaN) return "-";
+
+  currency = currency.trim();
+
+  if (currency.isEmpty) return "-";
+
+  CurrencyFormatterSettings backupSettings = CurrencyFormatterSettings(
+    symbol: "\$",
+    symbolSide: SymbolSide.left,
+  );
+
+  String value = CurrencyFormatter.format(
+    amount,
+    CurrencyFormatter.majors[currency.toLowerCase()] ?? backupSettings
+  );
+
+  // If we were not able to determine the currency
+  if (!CurrencyFormatter.majors.containsKey(currency.toLowerCase())) {
+    value += " ${currency}";
+  }
+
+  return value;
 }

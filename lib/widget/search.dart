@@ -36,6 +36,8 @@ class _SearchDisplayState extends RefreshableState<SearchWidget> {
 
   _SearchDisplayState(this.hasAppBar) : super();
 
+  final _formKey = GlobalKey<FormState>();
+
   final bool hasAppBar;
 
   @override
@@ -67,27 +69,34 @@ class _SearchDisplayState extends RefreshableState<SearchWidget> {
 
   Timer? debounceTimer;
 
+  /*
+   * Decrement the number of pending / outstanding search queries
+   */
+  void decrementPendingSearches() {
+    if (nPendingSearches > 0) {
+      nPendingSearches--;
+    }
+  }
+
+  /*
+   * Determine if the search is still running
+   */
   bool isSearching() {
 
     if (searchController.text.isEmpty) {
       return false;
     }
 
-    return nSearchResults < 5;
+    return nPendingSearches > 0;
   }
 
-  int nSearchResults = 0;
-
+  // Individual search result count (for legacy search API)
+  int nPendingSearches = 0;
   int nPartResults = 0;
-
   int nCategoryResults = 0;
-
   int nStockResults = 0;
-
   int nLocationResults = 0;
-
   int nSupplierResults = 0;
-
   int nPurchaseOrderResults = 0;
 
   late FocusNode _focusNode;
@@ -105,8 +114,37 @@ class _SearchDisplayState extends RefreshableState<SearchWidget> {
     } else {
       debounceTimer = Timer(Duration(milliseconds: 250), () {
         search(text);
+        if (!_focusNode.hasFocus) {
+          _focusNode.requestFocus();
+        }
       });
     }
+  }
+
+  /*
+   * Return the 'result count' for a particular query from the results map
+   * e.g.
+   * {
+   *     "part": {
+   *         "count": 102,
+   *     }
+   * }
+   */
+  int getSearchResultCount(Map <String, dynamic> results, String key) {
+
+    dynamic result = results[key];
+
+    if (result == null || result is! Map) {
+      return 0;
+    }
+
+    dynamic count = result["count"];
+
+    if (count == null || count is! int) {
+      return 0;
+    }
+
+    return count;
   }
 
   /*
@@ -117,8 +155,11 @@ class _SearchDisplayState extends RefreshableState<SearchWidget> {
    * So, each request only causes an update *if* the search term is still the same when it completes
    */
   Future<void> search(String term) async {
-
     var api = InvenTreeAPI();
+
+    if (!mounted) {
+      return;
+    }
 
     setState(() {
       // Do not search on an empty string
@@ -129,79 +170,149 @@ class _SearchDisplayState extends RefreshableState<SearchWidget> {
       nSupplierResults = 0;
       nPurchaseOrderResults = 0;
 
-      nSearchResults = 0;
+      nPendingSearches = 0;
     });
 
     if (term.isEmpty) {
       return;
     }
 
+    // Consolidated search allows us to perform *all* searches in a single query
+    if (api.supportsConsolidatedSearch) {
+      Map<String, dynamic> body = {
+        "limit": 1,
+        "search": term,
+      };
+
+      // Part search
+      if (api.checkPermission("part", "view")) {
+        body["part"] = {};
+      }
+
+      // PartCategory search
+      if (api.checkPermission("part_category", "view")) {
+        body["partcategory"] = {};
+      }
+
+      // StockItem search
+      if (api.checkPermission("stock", "view")) {
+        body["stockitem"] = {
+          "in_stock": true,
+        };
+      }
+
+      // StockLocation search
+      if (api.checkPermission("stock_location", "view")) {
+        body["stocklocation"] = {};
+      }
+
+      // PurchaseOrder search
+      if (api.checkPermission("purchase_order", "view")) {
+        body["purchaseorder"] = {
+          "outstanding": true
+        };
+      }
+
+      if (body.isNotEmpty) {
+        nPendingSearches++;
+
+        api.post(
+            "search/",
+            body: body,
+            expectedStatusCode: 200).then((APIResponse response) {
+          decrementPendingSearches();
+
+          Map<String, dynamic> results = {};
+
+          if (response.data is Map<String, dynamic>) {
+            results = response.data as Map<String, dynamic>;
+          }
+
+          if (mounted) {
+            setState(() {
+              nPartResults = getSearchResultCount(results, "part");
+              nCategoryResults = getSearchResultCount(results, "partcategory");
+              nStockResults = getSearchResultCount(results, "stockitem");
+              nLocationResults = getSearchResultCount(results, "stocklocation");
+              nSupplierResults = 0; //getSearchResultCount(results, "")
+              nPurchaseOrderResults = getSearchResultCount(results, "purchaseorder");
+            });
+          }
+        });
+      }
+    } else {
+      legacySearch(term);
+    }
+  }
+
+  /*
+   * Perform "legacy" search (without consolidated search API endpoint
+   */
+  Future<void> legacySearch(String term) async {
+
     // Search parts
     if (api.checkPermission("part", "view")) {
+      nPendingSearches++;
       InvenTreePart().count(searchQuery: term).then((int n) {
         if (term == searchController.text) {
-          setState(() {
-            nPartResults = n;
-            nSearchResults++;
-          });
+          if (mounted) {
+            decrementPendingSearches();
+            setState(() {
+              nPartResults = n;
+            });
+          }
         }
       });
     }
 
     // Search part categories
     if (api.checkPermission("part_category", "view")) {
+      nPendingSearches++;
       InvenTreePartCategory().count(searchQuery: term,).then((int n) {
         if (term == searchController.text) {
-          setState(() {
-            nCategoryResults = n;
-            nSearchResults++;
-          });
+          if (mounted) {
+            decrementPendingSearches();
+            setState(() {
+              nCategoryResults = n;
+            });
+          }
         }
       });
     }
 
     // Search stock items
     if (api.checkPermission("stock", "view")) {
+      nPendingSearches++;
       InvenTreeStockItem().count(searchQuery: term).then((int n) {
         if (term == searchController.text) {
-          setState(() {
-            nStockResults = n;
-            nSearchResults++;
-          });
+          if (mounted) {
+            decrementPendingSearches();
+            setState(() {
+              nStockResults = n;
+            });
+          }
         }
       });
     }
 
     // Search stock locations
     if (api.checkPermission("stock_location", "view")) {
+      nPendingSearches++;
       InvenTreeStockLocation().count(searchQuery: term).then((int n) {
         if (term == searchController.text) {
-          setState(() {
-            nLocationResults = n;
-
-            nSearchResults++;
-          });
+          if (mounted) {
+            decrementPendingSearches();
+            setState(() {
+              nLocationResults = n;
+            });
+          }
         }
       });
     }
 
-    // TDOO: Re-implement this once display for companies has been fixed
-    /*
-    // Search suppliers
-    InvenTreeCompany().count(searchQuery: term,
-      filters: {
-        "is_supplier": "true",
-      },
-    ).then((int n) {
-      setState(() {
-        nSupplierResults = n;
-        nSearchResults++;
-      });
-    });
-     */
-
     // Search purchase orders
     if (api.checkPermission("purchase_order", "view")) {
+     nPendingSearches++;
       InvenTreePurchaseOrder().count(
           searchQuery: term,
           filters: {
@@ -209,10 +320,12 @@ class _SearchDisplayState extends RefreshableState<SearchWidget> {
           }
       ).then((int n) {
         if (term == searchController.text) {
-          setState(() {
-            nPurchaseOrderResults = n;
-            nSearchResults++;
-          });
+          if (mounted) {
+            decrementPendingSearches();
+            setState(() {
+              nPurchaseOrderResults = n;
+            });
+          }
         }
       });
     }
@@ -229,22 +342,28 @@ class _SearchDisplayState extends RefreshableState<SearchWidget> {
           decoration: InputDecoration(
             hintText: L10().queryEmpty,
           ),
+          key: _formKey,
           readOnly: false,
-          autofocus: true,
+          autofocus: false,
           autocorrect: false,
           focusNode: _focusNode,
           controller: searchController,
           onChanged: (String text) {
             onSearchTextChanged(text);
+            _focusNode.requestFocus();
+          },
+          onFieldSubmitted: (String text) {
+            _focusNode.requestFocus();
           },
         ),
         trailing: GestureDetector(
           child: FaIcon(
-            searchController.text.isEmpty ? FontAwesomeIcons.search : FontAwesomeIcons.backspace,
+            searchController.text.isEmpty ? FontAwesomeIcons.magnifyingGlass : FontAwesomeIcons.deleteLeft,
             color: searchController.text.isEmpty ? COLOR_CLICK : COLOR_DANGER,
           ),
           onTap: () {
             searchController.clear();
+            _focusNode.requestFocus();
             onSearchTextChanged("", immediate: true);
           },
         ),
@@ -307,7 +426,7 @@ class _SearchDisplayState extends RefreshableState<SearchWidget> {
       results.add(
         ListTile(
           title: Text(L10().stockItems),
-          leading: FaIcon(FontAwesomeIcons.boxes),
+          leading: FaIcon(FontAwesomeIcons.boxesStacked),
           trailing: Text("${nStockResults}"),
           onTap: () {
             Navigator.push(
@@ -330,7 +449,7 @@ class _SearchDisplayState extends RefreshableState<SearchWidget> {
       results.add(
         ListTile(
           title: Text(L10().stockLocations),
-          leading: FaIcon(FontAwesomeIcons.mapMarkerAlt),
+          leading: FaIcon(FontAwesomeIcons.locationDot),
           trailing: Text("${nLocationResults}"),
           onTap: () {
             Navigator.push(
@@ -378,7 +497,7 @@ class _SearchDisplayState extends RefreshableState<SearchWidget> {
       results.add(
         ListTile(
           title: Text(L10().purchaseOrders),
-          leading: FaIcon(FontAwesomeIcons.shoppingCart),
+          leading: FaIcon(FontAwesomeIcons.cartShopping),
           trailing: Text("${nPurchaseOrderResults}"),
           onTap: () {
             Navigator.push(
@@ -400,7 +519,7 @@ class _SearchDisplayState extends RefreshableState<SearchWidget> {
       tiles.add(
         ListTile(
           title: Text(L10().searching),
-          leading: FaIcon(FontAwesomeIcons.search),
+          leading: FaIcon(FontAwesomeIcons.magnifyingGlass),
           trailing: CircularProgressIndicator(),
         )
       );
@@ -413,7 +532,7 @@ class _SearchDisplayState extends RefreshableState<SearchWidget> {
             L10().queryNoResults,
             style: TextStyle(fontStyle: FontStyle.italic),
           ),
-          leading: FaIcon(FontAwesomeIcons.searchMinus),
+          leading: FaIcon(FontAwesomeIcons.magnifyingGlassMinus),
         )
       );
     } else {

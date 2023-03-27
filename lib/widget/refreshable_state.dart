@@ -1,6 +1,9 @@
+import "package:flutter/material.dart";
+
+import "package:inventree/api.dart";
+
 import "package:inventree/widget/back.dart";
 import "package:inventree/widget/drawer.dart";
-import "package:flutter/material.dart";
 
 
 /*
@@ -62,6 +65,9 @@ abstract class RefreshableState<T extends StatefulWidget> extends State<T> with 
 
   bool get loaded => !loading;
 
+  // Helper function to return API instance
+  InvenTreeAPI get api => InvenTreeAPI();
+
   // Update current tab selection
   void onTabSelectionChanged(int index) {
 
@@ -75,7 +81,7 @@ abstract class RefreshableState<T extends StatefulWidget> extends State<T> with 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance?.addPostFrameCallback((_) => onBuild(_context!));
+    WidgetsBinding.instance.addPostFrameCallback((_) => onBuild(_context!));
   }
 
   // Function called after the widget is first build

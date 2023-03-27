@@ -1,6 +1,19 @@
-## InvenTree App Credits
----
+## Contributors
 
-### Sound Files
+Thanks to the following contributors, for their work building this app!
 
-- Some sound files have been sourced from [https://www.zapsplat.com](https://www.zapsplat.com)
+- [SchrodingersGat](https://github.com/SchrodingersGat) (*Lead Developer*)
+- [Guusggg](https://github.com/Guusggg)
+- [GoryMoon](https://github.com/GoryMoon)
+- [simonkuehling](https://github.com/simonkuehling)
+
+--------
+
+## Assets
+
+The InvenTree App makes use of the following third party assets
+
+- Icons are provided by [fontawesome](https://fontawesome.com)
+- Sound files have been sourced from [zapsplat](https://www.zapsplat.com)
+
+--------

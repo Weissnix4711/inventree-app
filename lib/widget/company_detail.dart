@@ -1,16 +1,22 @@
-
-import "package:inventree/api.dart";
-import "package:inventree/app_colors.dart";
-import "package:inventree/inventree/company.dart";
-import "package:inventree/inventree/purchase_order.dart";
-import "package:inventree/widget/purchase_order_list.dart";
-import "package:inventree/widget/refreshable_state.dart";
 import "package:flutter/material.dart";
 import "package:font_awesome_flutter/font_awesome_flutter.dart";
+
 import "package:inventree/l10.dart";
+import "package:inventree/api.dart";
+import "package:inventree/app_colors.dart";
+
+import "package:inventree/inventree/company.dart";
+import "package:inventree/inventree/purchase_order.dart";
+
+import "package:inventree/widget/attachment_widget.dart";
+import "package:inventree/widget/purchase_order_list.dart";
+import "package:inventree/widget/refreshable_state.dart";
 import "package:inventree/widget/snacks.dart";
+import "package:inventree/widget/supplier_part_list.dart";
 
-
+/*
+ * Widget for displaying detail view of a single Company instance
+ */
 class CompanyDetailWidget extends StatefulWidget {
 
   const CompanyDetailWidget(this.company, {Key? key}) : super(key: key);
@@ -18,18 +24,20 @@ class CompanyDetailWidget extends StatefulWidget {
   final InvenTreeCompany company;
 
   @override
-  _CompanyDetailState createState() => _CompanyDetailState(company);
+  _CompanyDetailState createState() => _CompanyDetailState();
 
 }
 
 
 class _CompanyDetailState extends RefreshableState<CompanyDetailWidget> {
 
-  _CompanyDetailState(this.company);
-
-  final InvenTreeCompany company;
+  _CompanyDetailState();
 
   List<InvenTreePurchaseOrder> outstandingOrders = [];
+  
+  int supplierPartCount = 0;
+
+  int attachmentCount = 0;
 
   @override
   String getAppBarTitle(BuildContext context) => L10().company;
@@ -43,14 +51,14 @@ class _CompanyDetailState extends RefreshableState<CompanyDetailWidget> {
       IconButton(
         icon: FaIcon(FontAwesomeIcons.globe),
         onPressed: () async {
-          company.goToInvenTreePage();
+          widget.company.goToInvenTreePage();
         },
       )
     );
 
     actions.add(
       IconButton(
-        icon: FaIcon(FontAwesomeIcons.edit),
+        icon: FaIcon(FontAwesomeIcons.penToSquare),
         tooltip: L10().edit,
         onPressed: () {
           editCompany(context);
@@ -64,16 +72,49 @@ class _CompanyDetailState extends RefreshableState<CompanyDetailWidget> {
 
   @override
   Future<void> request(BuildContext context) async {
-    await company.reload();
+    final bool result = await widget.company.reload();
 
-    if (company.isSupplier) {
-      outstandingOrders = await company.getPurchaseOrders(outstanding: true);
+    if (!result || widget.company.pk <= 0) {
+      // Company could not be loaded for some reason
+      Navigator.of(context).pop();
+      return;
+    }
+
+    if (widget.company.isSupplier) {
+      outstandingOrders =
+      await widget.company.getPurchaseOrders(outstanding: true);
+    }
+
+    InvenTreeSupplierPart().count(
+        filters: {
+          "supplier": widget.company.pk.toString()
+        }
+    ).then((value) {
+      if (mounted) {
+        setState(() {
+          supplierPartCount = value;
+        });
+      }
+    });
+
+    if (api.supportCompanyAttachments) {
+      InvenTreeCompanyAttachment().count(
+        filters: {
+          "company": widget.company.pk.toString()
+        }
+      ).then((value) {
+        if (mounted) {
+          setState(() {
+            attachmentCount = value;
+          });
+        }
+      });
     }
   }
 
   Future <void> editCompany(BuildContext context) async {
 
-    company.editForm(
+    widget.company.editForm(
       context,
       L10().companyEdit,
       onSuccess: (data) async {
@@ -83,6 +124,9 @@ class _CompanyDetailState extends RefreshableState<CompanyDetailWidget> {
     );
   }
 
+  /*
+   * Construct a list of tiles to display for this Company instance
+   */
   List<Widget> _companyTiles() {
 
     List<Widget> tiles = [];
@@ -91,15 +135,15 @@ class _CompanyDetailState extends RefreshableState<CompanyDetailWidget> {
 
     tiles.add(Card(
       child: ListTile(
-        title: Text("${company.name}"),
-        subtitle: Text("${company.description}"),
-        leading: InvenTreeAPI().getImage(company.image, width: 40, height: 40),
+        title: Text("${widget.company.name}"),
+        subtitle: Text("${widget.company.description}"),
+        leading: InvenTreeAPI().getImage(widget.company.image, width: 40, height: 40),
       ),
     ));
 
-  if (company.website.isNotEmpty) {
+  if (widget.company.website.isNotEmpty) {
     tiles.add(ListTile(
-      title: Text("${company.website}"),
+      title: Text("${widget.company.website}"),
       leading: FaIcon(FontAwesomeIcons.globe),
       onTap: () {
         // TODO - Open website
@@ -109,9 +153,9 @@ class _CompanyDetailState extends RefreshableState<CompanyDetailWidget> {
     sep = true;
   }
 
-  if (company.email.isNotEmpty) {
+  if (widget.company.email.isNotEmpty) {
     tiles.add(ListTile(
-      title: Text("${company.email}"),
+      title: Text("${widget.company.email}"),
       leading: FaIcon(FontAwesomeIcons.at),
       onTap: () {
         // TODO - Open email
@@ -121,9 +165,9 @@ class _CompanyDetailState extends RefreshableState<CompanyDetailWidget> {
     sep = true;
   }
 
-  if (company.phone.isNotEmpty) {
+  if (widget.company.phone.isNotEmpty) {
     tiles.add(ListTile(
-      title: Text("${company.phone}"),
+      title: Text("${widget.company.phone}"),
       leading: FaIcon(FontAwesomeIcons.phone),
       onTap: () {
         // TODO - Call phone number
@@ -134,12 +178,12 @@ class _CompanyDetailState extends RefreshableState<CompanyDetailWidget> {
   }
 
     // External link
-    if (company.link.isNotEmpty) {
+    if (widget.company.link.isNotEmpty) {
       tiles.add(ListTile(
-        title: Text("${company.link}"),
+        title: Text("${widget.company.link}"),
         leading: FaIcon(FontAwesomeIcons.link, color: COLOR_CLICK),
         onTap: () {
-          company.openLink();
+          widget.company.openLink();
         },
       ));
 
@@ -150,16 +194,32 @@ class _CompanyDetailState extends RefreshableState<CompanyDetailWidget> {
       tiles.add(Divider());
     }
 
-    if (company.isSupplier) {
-      // TODO - Add list of supplier parts
-      // TODO - Add list of purchase orders
+    if (widget.company.isSupplier) {
 
-      tiles.add(Divider());
+      if (supplierPartCount > 0) {
+        tiles.add(
+          ListTile(
+            title: Text(L10().supplierParts),
+            leading: FaIcon(FontAwesomeIcons.building, color: COLOR_CLICK),
+            trailing: Text(supplierPartCount.toString()),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => SupplierPartList({
+                    "supplier": widget.company.pk.toString()
+                  })
+                )
+              );
+            }
+          )
+        );
+      }
 
       tiles.add(
         ListTile(
           title: Text(L10().purchaseOrders),
-          leading: FaIcon(FontAwesomeIcons.shoppingCart, color: COLOR_CLICK),
+          leading: FaIcon(FontAwesomeIcons.cartShopping, color: COLOR_CLICK),
           trailing: Text("${outstandingOrders.length}"),
           onTap: () {
             Navigator.push(
@@ -167,7 +227,7 @@ class _CompanyDetailState extends RefreshableState<CompanyDetailWidget> {
               MaterialPageRoute(
                 builder: (context) => PurchaseOrderListWidget(
                   filters: {
-                    "supplier": "${company.pk}"
+                    "supplier": "${widget.company.pk}"
                   }
                 )
               )
@@ -188,22 +248,42 @@ class _CompanyDetailState extends RefreshableState<CompanyDetailWidget> {
        */
     }
 
-    if (company.isManufacturer) {
+    if (widget.company.isManufacturer) {
       // TODO - Add list of manufacturer parts
     }
 
-    if (company.isCustomer) {
+    if (widget.company.isCustomer) {
 
       // TODO - Add list of sales orders
 
       tiles.add(Divider());
     }
 
-    if (company.notes.isNotEmpty) {
+    if (widget.company.notes.isNotEmpty) {
       tiles.add(ListTile(
         title: Text(L10().notes),
-        leading: FaIcon(FontAwesomeIcons.stickyNote),
+        leading: FaIcon(FontAwesomeIcons.noteSticky),
         onTap: null,
+      ));
+    }
+
+    if (api.supportCompanyAttachments) {
+      tiles.add(ListTile(
+        title: Text(L10().attachments),
+        leading: FaIcon(FontAwesomeIcons.fileLines, color: COLOR_CLICK),
+        trailing: attachmentCount > 0 ? Text(attachmentCount.toString()) : null,
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => AttachmentWidget(
+                InvenTreeCompanyAttachment(),
+                widget.company.pk,
+                api.checkPermission("purchase_order", "change") || api.checkPermission("sales_order", "change")
+              )
+            )
+          );
+        }
       ));
     }
 

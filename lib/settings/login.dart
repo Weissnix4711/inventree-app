@@ -1,5 +1,6 @@
 import "package:flutter/material.dart";
 import "package:font_awesome_flutter/font_awesome_flutter.dart";
+import "package:one_context/one_context.dart";
 
 import "package:inventree/app_colors.dart";
 import "package:inventree/widget/dialogs.dart";
@@ -99,7 +100,7 @@ class _InvenTreeLoginSettingsState extends State<InvenTreeLoginSettingsWidget> {
     // Selected, but (for some reason) not the same as the API...
     if ((InvenTreeAPI().profile?.key ?? "") != profile.key) {
       return FaIcon(
-        FontAwesomeIcons.questionCircle,
+        FontAwesomeIcons.circleQuestion,
         color: COLOR_WARNING
       );
     }
@@ -107,7 +108,7 @@ class _InvenTreeLoginSettingsState extends State<InvenTreeLoginSettingsWidget> {
     // Reflect the connection status of the server
     if (InvenTreeAPI().isConnected()) {
       return FaIcon(
-        FontAwesomeIcons.checkCircle,
+        FontAwesomeIcons.circleCheck,
         color: COLOR_SUCCESS
       );
     } else if (InvenTreeAPI().isConnecting()) {
@@ -117,7 +118,7 @@ class _InvenTreeLoginSettingsState extends State<InvenTreeLoginSettingsWidget> {
       );
     } else {
       return FaIcon(
-        FontAwesomeIcons.timesCircle,
+        FontAwesomeIcons.circleXmark,
         color: COLOR_DANGER,
       );
     }
@@ -143,8 +144,7 @@ class _InvenTreeLoginSettingsState extends State<InvenTreeLoginSettingsWidget> {
             _selectProfile(context, profile);
           },
           onLongPress: () {
-            showDialog(
-                context: context,
+            OneContext().showDialog(
                 builder: (BuildContext context) {
                   return SimpleDialog(
                     title: Text(profile.name),
@@ -167,7 +167,7 @@ class _InvenTreeLoginSettingsState extends State<InvenTreeLoginSettingsWidget> {
                         },
                         child: ListTile(
                           title: Text(L10().profileEdit),
-                          leading: FaIcon(FontAwesomeIcons.edit)
+                          leading: FaIcon(FontAwesomeIcons.penToSquare)
                         )
                       ),
                       SimpleDialogOption(
@@ -184,7 +184,7 @@ class _InvenTreeLoginSettingsState extends State<InvenTreeLoginSettingsWidget> {
                         },
                         child: ListTile(
                           title: Text(L10().profileDelete),
-                          leading: FaIcon(FontAwesomeIcons.trashAlt),
+                          leading: FaIcon(FontAwesomeIcons.trashCan),
                         )
                       )
                     ],
@@ -209,7 +209,7 @@ class _InvenTreeLoginSettingsState extends State<InvenTreeLoginSettingsWidget> {
         title: Text(L10().profileSelect),
         actions: [
           IconButton(
-            icon: FaIcon(FontAwesomeIcons.plusCircle),
+            icon: FaIcon(FontAwesomeIcons.circlePlus),
             onPressed: () {
               _editProfile(context, createNew: true);
             },
@@ -259,7 +259,7 @@ class _ProfileEditState extends State<ProfileEditWidget> {
         title: Text(widget.profile == null ? L10().profileAdd : L10().profileEdit),
         actions: [
           IconButton(
-            icon: FaIcon(FontAwesomeIcons.save),
+            icon: FaIcon(FontAwesomeIcons.floppyDisk),
             onPressed: () async {
               if (formKey.currentState!.validate()) {
                 formKey.currentState!.save();

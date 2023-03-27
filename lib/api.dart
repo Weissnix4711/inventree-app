@@ -8,7 +8,7 @@ import "package:intl/intl.dart";
 import "package:inventree/app_colors.dart";
 import "package:inventree/preferences.dart";
 
-import "package:open_file/open_file.dart";
+import "package:open_filex/open_filex.dart";
 import "package:cached_network_image/cached_network_image.dart";
 import "package:flutter/material.dart";
 import "package:font_awesome_flutter/font_awesome_flutter.dart";
@@ -117,12 +117,14 @@ class InvenTreeFileService extends FileService {
     }
 
     final HttpClientResponse httpResponse = await req.close();
+
     final http.StreamedResponse _response = http.StreamedResponse(
       httpResponse.timeout(Duration(seconds: 60)), httpResponse.statusCode,
-      contentLength: httpResponse.contentLength,
+      contentLength: httpResponse.contentLength < 0 ? 0 : httpResponse.contentLength,
       reasonPhrase: httpResponse.reasonPhrase,
       isRedirect: httpResponse.isRedirect,
     );
+
     return HttpGetResponse(_response);
   }
 }
@@ -256,8 +258,29 @@ class InvenTreeAPI {
 
   int get apiVersion => _apiVersion;
 
+  // API endpoint for receiving purchase order line items was introduced in v12
+  bool get supportsPoReceive => apiVersion >= 12;
+
   // Notification support requires API v25 or newer
   bool get supportsNotifications => isConnected() && apiVersion >= 25;
+
+  // Return True if the API supports 'settings' (requires API v46)
+  bool get supportsSettings => isConnected() && apiVersion >= 46;
+
+  // Part parameter support requires API v56 or newer
+  bool get supportsPartParameters => isConnected() && apiVersion >= 56;
+
+  // Supports 'modern' barcode API (v80 or newer)
+  bool get supportModernBarcodes => isConnected() && apiVersion >= 80;
+
+  // Structural categories requires API v83 or newer
+  bool get supportsStructuralCategories => isConnected() && apiVersion >= 83;
+
+  // Company attachments require API v95 or newer
+  bool get supportCompanyAttachments => isConnected() && apiVersion >= 95;
+
+  // Consolidated search request API v102 or newer
+  bool get supportsConsolidatedSearch => isConnected() && apiVersion >= 102;
 
   // Are plugins enabled on the server?
   bool _pluginsEnabled = false;
@@ -311,9 +334,6 @@ class InvenTreeAPI {
   // Ensure we only ever create a single instance of the API class
   static final InvenTreeAPI _api = InvenTreeAPI._internal();
 
-  // API endpoint for receiving purchase order line items was introduced in v12
-  bool get supportsPoReceive => apiVersion >= 12;
-
   /*
    * Connect to the remote InvenTree server:
    *
@@ -339,7 +359,7 @@ class InvenTreeAPI {
     if (address.isEmpty || username.isEmpty || password.isEmpty) {
       showSnackIcon(
         L10().incompleteDetails,
-        icon: FontAwesomeIcons.exclamationCircle,
+        icon: FontAwesomeIcons.circleExclamation,
         success: false
       );
       return false;
@@ -361,7 +381,7 @@ class InvenTreeAPI {
     response = await get("", expectedStatusCode: 200);
 
     if (!response.successful()) {
-      showStatusCodeError(apiUrl, response.statusCode);
+      showStatusCodeError(apiUrl, response.statusCode, details: response.data.toString());
       return false;
     }
 
@@ -496,7 +516,7 @@ class InvenTreeAPI {
       showSnackIcon(
           L10().profileSelect,
           success: false,
-          icon: FontAwesomeIcons.exclamationCircle
+          icon: FontAwesomeIcons.circleExclamation
       );
       return false;
     }
@@ -720,7 +740,7 @@ class InvenTreeAPI {
         await localFile.writeAsBytes(bytes);
 
         if (openOnDownload) {
-          OpenFile.open(local_path);
+          OpenFilex.open(local_path);
         }
       } else {
         showStatusCodeError(url, response.statusCode);
@@ -877,6 +897,48 @@ class InvenTreeAPI {
     );
   }
 
+  /*
+   * Perform a request to link a custom barcode to a particular item
+   */
+  Future<bool> linkBarcode(Map<String, String> body) async {
+
+  HttpClientRequest? request = await apiRequest("/barcode/link/", "POST");
+
+  if (request == null) {
+    return false;
+  }
+
+  final response = await completeRequest(
+    request,
+    data: json.encode(body),
+    statusCode: 200
+  );
+
+  return response.isValid() && response.statusCode == 200;
+
+  }
+
+  /*
+   * Perform a request to unlink a custom barcode from a particular item
+   */
+  Future<bool> unlinkBarcode(Map<String, dynamic> body) async {
+
+    HttpClientRequest? request = await apiRequest("/barcode/unlink/", "POST");
+
+    if (request == null) {
+      return false;
+    }
+
+    final response = await completeRequest(
+        request,
+        data: json.encode(body),
+        statusCode: 200,
+    );
+
+    return response.isValid() && response.statusCode == 200;
+  }
+
+
   HttpClient createClient(String url, {bool strictHttps = false}) {
 
     var client = HttpClient();
@@ -985,6 +1047,7 @@ class InvenTreeAPI {
           "method": method,
         }
       );
+
       return null;
     }
   }
@@ -1040,13 +1103,11 @@ class InvenTreeAPI {
         }
       } else {
 
+        response.data = ignoreResponse ? {} : await responseToJson(url, _response) ?? {};
+
         // First check that the returned status code is what we expected
         if (statusCode != null && statusCode != _response.statusCode) {
-          showStatusCodeError(url, _response.statusCode);
-        } else if (ignoreResponse) {
-          response.data = {};
-        } else {
-          response.data = await responseToJson(url, _response) ?? {};
+          showStatusCodeError(url, _response.statusCode, details: response.data.toString());
         }
       }
     } on HttpException catch (error) {
@@ -1220,15 +1281,13 @@ class InvenTreeAPI {
     return CachedNetworkImage(
       imageUrl: url,
       placeholder: (context, url) => CircularProgressIndicator(),
-      errorWidget: (context, url, error) => FaIcon(FontAwesomeIcons.timesCircle, color: COLOR_DANGER),
+      errorWidget: (context, url, error) => FaIcon(FontAwesomeIcons.circleXmark, color: COLOR_DANGER),
       httpHeaders: defaultHeaders(),
       height: height,
       width: width,
       cacheManager: manager,
     );
   }
-
-  bool get supportsSettings => isConnected() && apiVersion >= 46;
 
   // Keep a record of which settings we have received from the server
   Map<String, InvenTreeGlobalSetting> _globalSettings = {};
@@ -1316,7 +1375,7 @@ class InvenTreeAPI {
           L10().locateLocation,
           "",
           fields,
-          icon: FontAwesomeIcons.searchLocation,
+          icon: FontAwesomeIcons.magnifyingGlassLocation,
           onSuccess: (Map<String, dynamic> data) async {
             plugin_name = (data["plugin"] ?? "") as String;
           }

@@ -142,6 +142,9 @@
   "bom": "BOM",
   "@bom": {},
 
+  "bomEnable": "Display Bill of Materials",
+  "@bomEnable": {},
+
   "build": "Build",
   "@build": {},
 
@@ -208,11 +211,17 @@
   "delete": "Delete",
   "@delete": {},
 
+  "deleteFailed": "Delete operation failed",
+  "@deleteFailed": {},
+
   "deletePart": "Delete Part",
   "@deletePart": {},
 
   "deletePartDetail": "Remove this part from the database",
   "@deletePartDetail": {},
+
+  "deleteSuccess": "Delete operation successful",
+  "@deleteSuccess": {},
 
   "description": "Description",
   "@description": {},
@@ -458,6 +467,9 @@
   "invalidStockItem": "Invalid Stock Item",
   "@invalidStockItem": {},
 
+  "invalidSupplierPart": "Invalid Supplier Part",
+  "@invalidSupplierPart": {},
+
   "invalidUsernamePassword": "Invalid username / password combination",
   "@invalidUsernamePassword": {},
 
@@ -573,6 +585,12 @@
   "packageName": "Package Name",
   "@packageName": {},
 
+  "parameters": "Parameters",
+  "@parameters": {},
+
+  "parametersSettingDetail": "Display part parameters",
+  "@parametersSettingDetail": {},
+
   "parent": "Parent",
   "@parent": {},
 
@@ -606,6 +624,9 @@
 
   "partNoResults": "No parts matching query",
   "@partNoResults": {},
+
+  "partSettings": "Part Settings",
+  "@partSettings": {},
 
   "partsStarred": "Subscribed Parts",
   "@partsStarred": {},
@@ -788,6 +809,9 @@
 
   "request": "Request",
   "@request": {},
+
+  "requestFailed": "Request Failed",
+  "@requestFailed": {},
 
   "requestSuccessful": "Request successful",
   "@requestSuccessful": {},
@@ -1086,6 +1110,18 @@
   "supplier": "Supplier",
   "@supplier": {},
 
+  "supplierPart": "Supplier Part",
+  "@supplierPart": {},
+
+  "supplierPartEdit": "Edit Supplier Part",
+  "@supplierPartEdit": {},
+
+  "supplierPartUpdated": "Supplier Part Updated",
+  "@supplierPartUpdated": {},
+
+  "supplierParts": "Supplier Parts",
+  "@supplierParts": {},
+
   "suppliers": "Suppliers",
   "@suppliers": {},
 
@@ -1143,6 +1179,9 @@
 
   "tokenMissingFromResponse": "Access token missing from response",
   "@tokenMissingFromResponse": {},
+
+  "totalPrice": "Total Price",
+  "@totalPrice": {},
 
   "transfer": "Transfer",
   "@transfer": {
